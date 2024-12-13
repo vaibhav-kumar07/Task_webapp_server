@@ -36,7 +36,7 @@ app.use(helmet());
 app.get('/', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
     const response = {
-        message: 'Welcome to Inventroy Backend Service',
+        message: 'Welcome to Task Backend Service',
         environment: CommonVariables.NODE_ENV,
         service: CommonVariables.APP_SERVICE_NAME,
     };
