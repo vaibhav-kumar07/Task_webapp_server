@@ -32,7 +32,6 @@ app.use(helmet());
 
 
 
-// Health check route
 app.get('/', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
     const response = {

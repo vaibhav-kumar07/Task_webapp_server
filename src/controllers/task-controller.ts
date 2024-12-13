@@ -15,8 +15,8 @@ export default class TaskController {
     }
 
     // Get a list of tasks with pagination
-    public async get(pagination: any) {
-        return await this.taskService.get(pagination);
+    public async get(filters: any, pagination: any, sort: any, searchText: string) {
+        return await this.taskService.get(filters, pagination, sort, searchText);
     }
 
     // Get a task by ID

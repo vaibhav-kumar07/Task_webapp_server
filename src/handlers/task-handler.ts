@@ -16,8 +16,11 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
 
 export const get = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const filters = req.query.filters || {};
         const pagination = req.query.pagination || {};
-        const items = await TaskController.get(pagination);
+        const sort = req.query.sort as string || 'stat_date:asc';
+        const searchText = req.query.searchText as string || '';
+        const items = await TaskController.get(filters, pagination, sort, searchText);
         res.status(200).json(items);
     } catch (error) {
         next(error);

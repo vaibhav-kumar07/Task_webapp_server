@@ -2,6 +2,7 @@ import { ITask, ITaskStatus } from '../interfaces/task';
 import { IUser } from '../interfaces/user';
 import Task from '../models/task'; // Import the GMT conversion utility
 import { throwBusinessError } from '../utils/error-utils';
+import { parseFilters } from '../utils/filter-utils';
 import { applyPagination } from '../utils/pagination-sort-utils';
 
 export default class TaskService {
@@ -77,10 +78,15 @@ export default class TaskService {
     }
 
     // Get tasks with pagination
-    public async get(pagination: any): Promise<any> {
+    public async get(filters: any, pagination: any, sort: any, searchText: string): Promise<any> {
         const { limit, skip } = applyPagination(pagination);
-
-        const tasksList = await Task.find()
+        const criteria = { ...parseFilters(filters) };
+        if (searchText) {
+            criteria.$or = [
+                { title: { $regex: searchText, $options: 'i' } }
+            ];
+        }
+        const tasksList = await Task.find(criteria)
             .collation({ locale: 'en' })
             .skip(skip)
             .limit(limit)
