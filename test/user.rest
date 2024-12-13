@@ -1,0 +1,26 @@
+# Base URL for the API
+@baseUrl = http://localhost:6003/api/auth
+@id=67496ccc19305e3e4ef2b4e0
+### Fetch All Products
+GET {{baseUrl}}
+Content-Type: application/json
+
+
+### Create a New Product
+POST {{baseUrl}}/register
+Content-Type: application/json
+
+{
+  "name": "vaibhav",
+ "email": "vaibhavtezan@gmail.com",
+ "password": "123456789"
+}
+
+### login with Product
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+ "email": "vaibhavtezan@gmail.com",
+ "password": "123456789"
+}
