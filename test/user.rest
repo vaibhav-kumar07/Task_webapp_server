@@ -1,6 +1,8 @@
 # Base URL for the API
 @baseUrl = http://localhost:6003/api/auth
 @id=67496ccc19305e3e4ef2b4e0
+
+@token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzVjNmIwZmRmYTY2OWI5MjA4ODE3MWEiLCJpYXQiOjE3MzQxMDk5NjcsImV4cCI6MTczNDExNzE2N30.8iB4dijpBNuBSt8-qE3Dl0cMfnpa0XDUTtGIry9A0kY
 ### Fetch All Products
 GET {{baseUrl}}
 Content-Type: application/json
@@ -24,3 +26,9 @@ Content-Type: application/json
  "email": "vaibhavtezan@gmail.com",
  "password": "123456789"
 }
+
+
+### authorize with user
+GET {{baseUrl}}/validate
+Content-Type: application/json
+Authorization: bearer {{token}}
