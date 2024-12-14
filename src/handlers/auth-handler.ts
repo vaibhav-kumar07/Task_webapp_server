@@ -34,3 +34,11 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
         next(error);
     }
 };
+
+export const validate = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.status(200).json({ message: "token is valid" });
+    } catch (error) {
+        next(error);
+    }
+};

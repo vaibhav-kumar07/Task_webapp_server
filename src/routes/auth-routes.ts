@@ -13,6 +13,6 @@ router.post('/login', authHandler.login);
 // Logout Route (Log Out)
 router.post('/logout', authHandler.logout);
 
-router.get("/validate", authorizer)
+router.get("/validate", authorizer, authHandler.validate)
 
 export default router;
