@@ -1,7 +1,7 @@
 # Base URL for the Task API
 @baseUrl = http://localhost:6003/api/tasks
 @taskId = 675c84109d5b73d35cdc14b6  
-@token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzVjNmIwZmRmYTY2OWI5MjA4ODE3MWEiLCJpYXQiOjE3MzQxMDk5NjcsImV4cCI6MTczNDExNzE2N30.8iB4dijpBNuBSt8-qE3Dl0cMfnpa0XDUTtGIry9A0kY
+@token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzVjZmRlYzI1N2NiZmJkNzk1OWMzNjUiLCJpYXQiOjE3MzQxNzUwNTYsImV4cCI6MTczNDE4MjI1Nn0.FW3NXB2pM0A02pujBEdsNhMrJR7UDV1GzSCopayK3E0
 
 ### Fetch All Tasks
 GET {{baseUrl}}

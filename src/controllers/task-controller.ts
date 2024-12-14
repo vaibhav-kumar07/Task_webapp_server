@@ -1,5 +1,5 @@
 import { validateSchema, checkAndThrowError } from '../utils/error-utils';
-import { createTaskSchema, updateTaskSchema, idSchema, updateTaskStatusSchema } from '../validation-schemas/task';
+import { createTaskSchema, updateTaskSchema, idSchema } from '../validation-schemas/task';
 import TaskService from '../services/task-services';
 import { ITask, ITaskStatus } from '../interfaces/task';
 import { IUser } from '../interfaces/user';
@@ -19,12 +19,7 @@ export default class TaskController {
         return await this.taskService.get(filters, pagination, sort, searchText);
     }
 
-    // Get a task by ID
-    public async getById(id: string, user: IUser) {
-        const validationResult = validateSchema(idSchema, id);
-        checkAndThrowError(validationResult);
-        return await this.taskService.getById(id, user);
-    }
+
 
     // Update a task's details
     public async update(id: string, taskData: ITask) {
@@ -32,14 +27,6 @@ export default class TaskController {
         checkAndThrowError(validationResult);
         return await this.taskService.update(id, taskData);
     }
-
-    // Update a task's status
-    public async updateStatus(id: string, status: string) {
-        const validationResult = validateSchema(updateTaskStatusSchema, { id, status });
-        checkAndThrowError(validationResult);
-        return await this.taskService.updateStatus(id, status as ITaskStatus);
-    }
-
     // Delete a task by ID
     public async delete(id: string) {
         const validationResult = validateSchema(idSchema, id);

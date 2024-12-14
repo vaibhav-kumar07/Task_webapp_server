@@ -7,16 +7,14 @@ export enum ITaskStatus {
     FINISHED = 'finished',
 }
 
-
-
-
 export interface ITask extends IAuditFields {
     _id?: string;
     title: string;
-    start_time: Number | string;
-    end_time: Number | string;
+    start_time: Date | string;
+    end_time: Date | string;
     priority: string;
     status: ITaskStatus;
+    completion_time?: number
 }
 
 export interface ITaskFilters {

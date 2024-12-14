@@ -1,16 +1,17 @@
 import { ITask, ITaskStatus } from '../interfaces/task';
 import { IUser } from '../interfaces/user';
 import Task from '../models/task'; // Import the GMT conversion utility
+import { calculateCompletionTimeInHours } from '../utils/date-utils';
 import { throwBusinessError } from '../utils/error-utils';
 import { parseFilters } from '../utils/filter-utils';
-import { applyPagination } from '../utils/pagination-sort-utils';
+import { applyPagination, applySort } from '../utils/pagination-sort-utils';
+import { PipelineStage } from 'mongoose';
 
 export default class TaskService {
 
     private async save(input: Partial<ITask>, isNew: boolean = true): Promise<ITask> {
         const task = new Task(input);
         task.isNew = isNew;
-        console.log("task", task)
         return (await task.save()).toObject();
     }
 
@@ -22,7 +23,7 @@ export default class TaskService {
 
         taskData.created_by = user.email
         taskData.updated_by = user.email
-        console.log("taskData", taskData)
+        taskData!.completion_time = calculateCompletionTimeInHours(taskData.start_time as string, taskData.end_time as string);
         // Use save to create the new task
         return (await this.save(taskData, true))
     }
@@ -31,53 +32,25 @@ export default class TaskService {
     public async update(id: string, taskData: Partial<ITask>): Promise<ITask> {
         const existingTask = await Task.findById(id);
 
-        // Throw error if the task is not found
-        throwBusinessError(!existingTask, 'Task not found for update');
 
-        // Ensure existingTask is not null before proceeding
+        throwBusinessError(!existingTask, 'Task not found for update');
         if (!existingTask) {
             throw new Error('Task not found');
         }
 
-        // Convert start_time and end_time to GMT Date objects if they are being updated
         if (taskData.start_time) {
             taskData.start_time = taskData.start_time as string
         }
         if (taskData.end_time) {
             taskData.end_time = taskData.end_time as string
         }
-
+        taskData!.completion_time = calculateCompletionTimeInHours(taskData.start_time as string, taskData.end_time as string);
         // Merge the existing task's data with the new data and use save for update
         const updatedTask = { ...existingTask.toObject(), ...taskData, updated_at: new Date() };
         return await this.save(updatedTask, false);
     }
 
-    // Update task status
-    public async updateStatus(id: string, status: ITaskStatus): Promise<ITask> {
-        const existingTask = await Task.findById(id);
 
-        // Throw error if the task is not found
-        throwBusinessError(!existingTask, 'Task not found for status update');
-
-        // Ensure existingTask is not null before proceeding
-        if (!existingTask) {
-            throw new Error('Task not found');
-        }
-
-        // Update task status and modified date
-        existingTask.status = status;
-        existingTask.updated_at = new Date(); // Use current date as updated time
-
-        return await this.save(existingTask, false);
-    }
-
-    // Get a task by ID
-    public async getById(id: string, user: IUser): Promise<ITask | null> {
-        const task = await Task.findOne({ _id: id, created_by: user.email });
-        return task as ITask;
-    }
-
-    // Get tasks with pagination
     public async get(filters: any, pagination: any, sort: any, searchText: string): Promise<any> {
         const { limit, skip } = applyPagination(pagination);
         const criteria = { ...parseFilters(filters) };
@@ -86,7 +59,9 @@ export default class TaskService {
                 { title: { $regex: searchText, $options: 'i' } }
             ];
         }
+        const sortObj = applySort(sort);
         const tasksList = await Task.find(criteria)
+            .sort(sortObj as any)
             .collation({ locale: 'en' })
             .skip(skip)
             .limit(limit)
@@ -114,78 +89,165 @@ export default class TaskService {
         throwBusinessError(!deletedTask, 'Task not found for deletion');
     }
 
-    public getStats = async (user: IUser) => {
-        const pipeline = [
-            { $match: { created_by: user.email } },
-
+    getStats = async (user: IUser) => {
+        const pipeline: PipelineStage[] = [
+            {
+                $match: { created_by: user.email },
+            },
             {
                 $facet: {
                     totalTasks: [{ $count: "total" }],
                     completedTasks: [
                         { $match: { status: ITaskStatus.FINISHED } },
-                        { $count: ITaskStatus.FINISHED }
+                        { $count: "totalCompleted" },
                     ],
                     pendingTasks: [
                         { $match: { status: ITaskStatus.PENDING } },
-                        { $count: ITaskStatus.PENDING }
+                        {
+                            $group: {
+                                _id: null,
+                                pendingCount: { $sum: 1 },
+                                totalTimeLapsed: {
+                                    $sum: {
+                                        $cond: {
+                                            if: { $and: [{ $ne: ["$start_time", null] }, { $lt: ["$start_time", "$$NOW"] }] },
+                                            then: { $subtract: ["$$NOW", "$start_time"] },
+                                            else: 0,
+                                        },
+                                    },
+                                },
+                                totalEstimatedTime: {
+                                    $sum: {
+                                        $cond: {
+                                            if: { $and: [{ $ne: ["$start_time", null] }, { $ne: ["$end_time", null] }] },
+                                            then: { $subtract: ["$end_time", "$start_time"] },
+                                            else: 0,
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     ],
                     priorityStats: [
+                        { $match: { status: ITaskStatus.PENDING } },
                         {
                             $group: {
                                 _id: "$priority",
-                                totalTime: { $sum: { $subtract: ["$end_time", "$start_time"] } },
-                                completedTime: { $sum: { $cond: [{ $eq: ["$status", ITaskStatus.FINISHED] }, { $subtract: ["$end_time", "$start_time"] }, 0] } },
-                                pendingTime: { $sum: { $cond: [{ $eq: ["$status", ITaskStatus.PENDING] }, { $subtract: ["$end_time", "$start_time"] }, 0] } }
-                            }
-                        }
+                                pendingCount: { $sum: 1 },
+                                timeLapsed: {
+                                    $sum: {
+                                        $cond: {
+                                            if: { $and: [{ $ne: ["$start_time", null] }, { $lt: ["$start_time", "$$NOW"] }] },
+                                            then: { $subtract: ["$$NOW", "$start_time"] },
+                                            else: 0,
+                                        },
+                                    },
+                                },
+                                estimatedTimeToFinish: {
+                                    $sum: {
+                                        $cond: {
+                                            if: { $and: [{ $ne: ["$start_time", null] }, { $ne: ["$end_time", null] }] },
+                                            then: { $subtract: ["$end_time", "$start_time"] },
+                                            else: 0,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        { $sort: { _id: 1 } },
                     ],
                     avgCompletionTime: [
                         { $match: { status: ITaskStatus.FINISHED } },
                         {
                             $project: {
-                                completionTime: { $divide: [{ $subtract: ["$end_time", "$start_time"] }, 1000 * 60 * 60] } // in hours
-                            }
+                                completionTime: {
+                                    $divide: [
+                                        { $subtract: ["$end_time", "$start_time"] },
+                                        1000 * 60 * 60, // Convert to hours
+                                    ],
+                                },
+                            },
                         },
                         {
                             $group: {
                                 _id: null,
-                                avgTime: { $avg: "$completionTime" }
-                            }
-                        }
-                    ]
-                }
+                                averageTime: { $avg: "$completionTime" },
+                            },
+                        },
+                    ],
+                },
             },
-
             {
                 $project: {
-                    totalCount: { $arrayElemAt: ["$totalTasks.total", 0] },
-                    completedPercentage: { $multiply: [{ $divide: [{ $arrayElemAt: ["$completedTasks.finished", 0] }, { $arrayElemAt: ["$totalTasks.total", 0] }] }, 100] },
-                    pendingPercentage: { $multiply: [{ $divide: [{ $arrayElemAt: ["$pendingTasks.pending", 0] }, { $arrayElemAt: ["$totalTasks.total", 0] }] }, 100] },
-                    timeLapsed: { $sum: "$priorityStats.completedTime" },
-                    timeLeft: { $sum: "$priorityStats.pendingTime" },
-                    priorityTimes: "$priorityStats",
-                    avgCompletionTime: { $arrayElemAt: ["$avgCompletionTime.avgTime", 0] }
-                }
-            }
+                    total_tasks: { $arrayElemAt: ["$totalTasks.total", 0] },
+                    completed_percentage: {
+                        $multiply: [
+                            {
+                                $divide: [
+                                    { $arrayElemAt: ["$completedTasks.totalCompleted", 0] },
+                                    { $arrayElemAt: ["$totalTasks.total", 0] },
+                                ],
+                            },
+                            100,
+                        ],
+                    },
+                    pending_percentage: {
+                        $multiply: [
+                            {
+                                $divide: [
+                                    { $arrayElemAt: ["$pendingTasks.pendingCount", 0] },
+                                    { $arrayElemAt: ["$totalTasks.total", 0] },
+                                ],
+                            },
+                            100,
+                        ],
+                    },
+                    pending_summary: {
+                        pending_tasks: { $arrayElemAt: ["$pendingTasks.pendingCount", 0] },
+                        total_time_lapsed: {
+                            $divide: [
+                                { $arrayElemAt: ["$pendingTasks.totalTimeLapsed", 0] },
+                                1000 * 60 * 60, // Convert to hours
+                            ],
+                        },
+                        total_time_estimated: {
+                            $divide: [
+                                { $arrayElemAt: ["$pendingTasks.totalEstimatedTime", 0] },
+                                1000 * 60 * 60, // Convert to hours
+                            ],
+                        },
+                    },
+                    priority_stats: {
+                        $map: {
+                            input: "$priorityStats",
+                            as: "priority",
+                            in: {
+                                _id: "$$priority._id",
+                                pendingCount: "$$priority.pendingCount",
+                                timeLapsed: {
+                                    $divide: [
+                                        "$$priority.timeLapsed",
+                                        1000 * 60 * 60, // Convert timeLapsed to hours
+                                    ],
+                                },
+                                estimatedTimeToFinish: {
+                                    $divide: [
+                                        "$$priority.estimatedTimeToFinish",
+                                        1000 * 60 * 60, // Convert estimatedTimeToFinish to hours
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    average_completion_time: {
+                        $arrayElemAt: ["$avgCompletionTime.averageTime", 0],
+                    },
+                },
+            },
         ];
 
         const result = await Task.aggregate(pipeline);
-
-        if (!result || result.length === 0) {
-            throw new Error('No tasks found for this user');
-        }
-
-        const stats = result[0];
-
-        return {
-            total_count: stats.totalCount || 0,
-            completed_percentage: stats.completedPercentage || 0,
-            pending_percentage: stats.pendingPercentage || 0,
-            time_lapsed: (stats.timeLapsed / (1000 * 60 * 60)).toFixed(2), // Convert ms to hours
-            time_left: (stats.timeLeft / (1000 * 60 * 60)).toFixed(2), // Convert ms to hours
-            priority_times: stats.priorityTimes,
-            average_completion_time: stats.avgCompletionTime ? stats.avgCompletionTime.toFixed(2) : 0
-        };
+        return result[0] || {};
     };
 
 

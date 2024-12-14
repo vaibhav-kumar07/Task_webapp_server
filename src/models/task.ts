@@ -7,8 +7,8 @@ const TaskSchema: Schema = new Schema<ITask>(
     {
 
         title: { type: String, required: true, unique: true },
-        start_time: { type: Number, required: true },
-        end_time: { type: Number, required: true },
+        start_time: { type: Date, required: true },
+        end_time: { type: Date, required: true },
         priority: {
             type: String,
             required: true
@@ -19,6 +19,10 @@ const TaskSchema: Schema = new Schema<ITask>(
             enum: Object.values(ITaskStatus),
             default: ITaskStatus.PENDING,
             required: true,
+        },
+        completion_time: {
+            type: Number,
+            required: true
         },
         created_at: { type: Date, required: true, default: Date.now },
         created_by: { type: String, required: true },
